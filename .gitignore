@@ -1,0 +1,96 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets.json
+credentials.json
+
+# IDE and editor files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Streamlit
+.streamlit/config.toml
+.streamlit/secrets.toml
+.streamlit/.gitignore
+
+# Testing
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# IDEs
+*.sublime-workspace
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Salesforce credentials and API tokens
+salesforce_credentials.txt
+sfdc_*.json
+*_token.txt
+
+# Generated data files (optional - uncomment to exclude)
+# *.csv
+# *.xlsx
+# *.zip
+# export_data/
+
+# Logs
+*.log
+logs/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Local testing files
+test_output/
+temp/
+tmp/
