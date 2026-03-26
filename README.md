@@ -51,6 +51,10 @@ See `requirements.txt` for complete dependency list.
    ```bash
    python -m venv venv
    ```
+
+3. **Activate the virtual environment**
+
+   ⚠️ **Important:** You MUST activate the virtual environment BEFORE installing dependencies.
    
    On macOS/Linux:
    ```bash
@@ -60,6 +64,10 @@ See `requirements.txt` for complete dependency list.
    On Windows (PowerShell):
    ```powershell
    venv\Scripts\Activate.ps1
+   
+   # If you get an execution policy error, try:
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   venv\Scripts\Activate.ps1
    ```
    
    On Windows (Command Prompt):
@@ -67,14 +75,27 @@ See `requirements.txt` for complete dependency list.
    venv\Scripts\activate.bat
    ```
 
-3. **Install dependencies**
+   After activation, your shell prompt should show `(venv)` at the beginning.
+
+4. **Install dependencies**
+   
+   With the virtual environment activated, install all required packages:
    ```bash
    pip install -r requirements.txt
    ```
+   
+   This will install:
+   - `streamlit` - Web framework for the application
+   - `pandas` - Data manipulation
+   - `simple-salesforce` - Salesforce API client
+   - `requests` - HTTP library
+   - `python-dotenv` - Environment variable management
 
 ## Quick Start
 
 ### 1. Run the Application
+
+**First, ensure your virtual environment is activated.** Your shell prompt should show `(venv)` at the beginning.
 
 Once your virtual environment is activated and dependencies are installed, start the Streamlit app:
 
@@ -83,6 +104,13 @@ streamlit run fsc_data_generator_v2.py
 ```
 
 The application will automatically open in your default browser at `http://localhost:8501`. If it doesn't open automatically, navigate to that URL manually.
+
+### To Deactivate the Virtual Environment (when done)
+
+Simply type:
+```bash
+deactivate
+```
 
 ### 2. Configure Your Settings
 
@@ -145,18 +173,30 @@ You have two options for providing Salesforce credentials:
 
 ### Option 1: Use the Web Interface (Easiest)
 
-Simply enter your credentials directly in the app's sidebar. This is the quickest way to get started for one-time use.
+Simply enter your credentials directly in the app's sidebar when it runs. This is the quickest way to get started for one-time use.
 
-### Option 2: Use Environment Variables (Recommended for Production)
+### Option 2: Use Environment Variables (.env file) — Recommended
 
-For better security and automation, use a `.env` file:
+For better security and automation, use a `.env` file (make sure your virtual environment is activated first):
 
-1. **Create a `.env` file** in the project root:
+1. **Activate your virtual environment** (if not already active)
+   ```bash
+   # macOS/Linux
+   source venv/bin/activate
+   
+   # Windows PowerShell
+   venv\Scripts\Activate.ps1
+   
+   # Windows Command Prompt
+   venv\Scripts\activate.bat
+   ```
+
+2. **Create a `.env` file** in the project root:
    ```bash
    cp .env.example .env
    ```
 
-2. **Edit `.env`** with your actual Salesforce credentials:
+3. **Edit `.env`** with your actual Salesforce credentials:
    ```
    SALESFORCE_INSTANCE_URL=https://your-instance.salesforce.com
    SALESFORCE_USERNAME=your.email@example.com
@@ -165,16 +205,19 @@ For better security and automation, use a `.env` file:
    SALESFORCE_ENVIRONMENT=sandbox
    ```
 
-3. **Load environment variables** (if using python-dotenv):
-   - Uncomment `python-dotenv` in `requirements.txt`
-   - Run: `pip install -r requirements.txt`
-   - The app will automatically load credentials from `.env`
+4. **Run the app** (within the activated virtual environment):
+   ```bash
+   streamlit run fsc_data_generator_v2.py
+   ```
+   
+   The app will automatically load credentials from the `.env` file via `python-dotenv`.
 
 **⚠️ Important Security Notes:**
 - **Never commit `.env` to version control** — it's excluded by `.gitignore`
 - **Never hardcode credentials in the code**
-- Use environment variables or `.env` only for development/testing
-- For production deployments, use your CI/CD platform's secure secret management
+- Use `.env` file only for development and testing
+- Always activate the virtual environment before running the app so `python-dotenv` can load the environment variables
+- For production deployments, use your CI/CD platform's secure secret management (GitHub Secrets, GitLab CI/CD variables, etc.)
 
 ## Data Objects
 

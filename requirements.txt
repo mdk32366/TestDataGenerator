@@ -3,9 +3,7 @@ streamlit>=1.28.0
 pandas>=2.0.0
 simple-salesforce>=1.12.0
 requests>=2.31.0
-
-# Optional dependencies for enhanced functionality
-# python-dotenv>=1.0.0  # Uncomment for .env file support
+python-dotenv>=1.0.0
 
 # Development dependencies (optional)
 # pytest>=7.4.0
