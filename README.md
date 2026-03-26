@@ -41,52 +41,140 @@ See `requirements.txt` for complete dependency list.
 
 ## Installation
 
-1. Clone the repository
-2. Create a virtual environment:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/mdk32366/TestDataGenerator.git
+   cd TestDataGenerator
+   ```
+
+2. **Create a virtual environment**
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
-3. Install dependencies:
+   
+   On macOS/Linux:
+   ```bash
+   source venv/bin/activate
+   ```
+   
+   On Windows (PowerShell):
+   ```powershell
+   venv\Scripts\Activate.ps1
+   ```
+   
+   On Windows (Command Prompt):
+   ```cmd
+   venv\Scripts\activate.bat
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-## Usage
+## Quick Start
 
-Run the Streamlit app:
+### 1. Run the Application
+
+Once your virtual environment is activated and dependencies are installed, start the Streamlit app:
+
 ```bash
 streamlit run fsc_data_generator_v2.py
 ```
 
-The app will open in your browser at `http://localhost:8501`
+The application will automatically open in your default browser at `http://localhost:8501`. If it doesn't open automatically, navigate to that URL manually.
 
-### Generating Data Locally
+### 2. Configure Your Settings
 
-1. Use the sidebar to configure generation parameters
-2. Adjust record counts, date ranges, and regional filters
-3. Click "Generate Data" to create test datasets
-4. Download as CSV or ZIP file
+In the **Sidebar**, you'll see configuration options for data generation:
 
-### Upload to Salesforce
+- **Region**: Select geographic area (All 50 States, Northeast, Southeast, Midwest, Southwest, West, etc.)
+- **Record Counts**: Set how many records to generate for:
+  - Campaigns
+  - Leads
+  - Accounts
+  - Contacts (per account)
+  - Opportunities
+  - Policies (for won opportunities)
+- **Opportunity Settings**: 
+  - Percentage of Closed Won opportunities
+  - Months of historical data to include
+  - Months of forward-dated opportunities
+- **Industry & Business Types**: Select which industries and company types to include
 
-1. Enter your Salesforce credentials (Instance URL, Username, Password, Security Token)
-2. Select sandbox or production environment
-3. Click "Upload to Salesforce"
-4. Monitor progress in the real-time log panel
+### 3. Generate Data Locally
+
+1. Adjust all parameters in the sidebar as desired
+2. Click the **"Generate Data"** button
+3. Monitor progress in the main panel—you'll see real-time statistics
+4. Once complete, download options appear:
+   - **Download as CSV**: Individual files for each object type
+   - **Download as ZIP**: All files compressed into a single ZIP archive
+
+### 4. Upload to Salesforce (Optional)
+
+To push generated data directly to your Salesforce instance:
+
+1. **Enter Salesforce Credentials** in the "Salesforce Connection" section:
+   - Instance URL (e.g., `https://my-instance.salesforce.com`)
+   - Username (your Salesforce email)
+   - Password
+   - Security Token (see below for how to obtain)
+   - Select **Sandbox** or **Production** environment
+
+2. **Click "Upload to Salesforce"** button
+
+3. **Monitor the upload progress** in the real-time log panel
+   - Green messages indicate successful inserts
+   - Red messages indicate errors or failures
+   - The log shows object counts and any validation issues
+
+### Getting Your Salesforce Security Token
+
+1. Log in to Salesforce
+2. Click your profile icon in the top-right
+3. Select **Settings**
+4. In the left sidebar, go to **Personal Setup** > **My Personal Information** > **Reset Security Token**
+5. Click **Reset Security Token**
+6. Check your email for the new token
+7. Copy and paste it into the app (or use the `.env` file—see below)
 
 ## Salesforce Credentials
 
-For security, use environment variables or `.env` file (see `.gitignore`):
+You have two options for providing Salesforce credentials:
 
-```bash
-export SALESFORCE_INSTANCE_URL="https://your-instance.salesforce.com"
-export SALESFORCE_USERNAME="your.email@example.com"
-export SALESFORCE_PASSWORD="your_password"
-export SALESFORCE_SECURITY_TOKEN="your_security_token"
-```
+### Option 1: Use the Web Interface (Easiest)
 
-Never commit credentials to version control.
+Simply enter your credentials directly in the app's sidebar. This is the quickest way to get started for one-time use.
+
+### Option 2: Use Environment Variables (Recommended for Production)
+
+For better security and automation, use a `.env` file:
+
+1. **Create a `.env` file** in the project root:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env`** with your actual Salesforce credentials:
+   ```
+   SALESFORCE_INSTANCE_URL=https://your-instance.salesforce.com
+   SALESFORCE_USERNAME=your.email@example.com
+   SALESFORCE_PASSWORD=your_password
+   SALESFORCE_SECURITY_TOKEN=your_security_token
+   SALESFORCE_ENVIRONMENT=sandbox
+   ```
+
+3. **Load environment variables** (if using python-dotenv):
+   - Uncomment `python-dotenv` in `requirements.txt`
+   - Run: `pip install -r requirements.txt`
+   - The app will automatically load credentials from `.env`
+
+**⚠️ Important Security Notes:**
+- **Never commit `.env` to version control** — it's excluded by `.gitignore`
+- **Never hardcode credentials in the code**
+- Use environment variables or `.env` only for development/testing
+- For production deployments, use your CI/CD platform's secure secret management
 
 ## Data Objects
 
