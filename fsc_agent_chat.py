@@ -57,7 +57,7 @@ def _get_client():
         # Try .env fallback
         try:
             from dotenv import load_dotenv
-            load_dotenv()
+            load_dotenv(encoding='utf-8-sig')
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         except ImportError:
             pass
