@@ -37,11 +37,11 @@ st.markdown("""
 
     .config-ribbon {
         background: #f0f4f8; border-left: 4px solid #2563a8;
-        padding: 0.7rem 1rem; margin-bottom: 1rem; border-radius: 4px;
+        padding: 0.7rem 1rem; margin-bottom: 0.7rem; border-radius: 4px;
         font-size: 0.85rem; color: #1a3a5c;
     }
 
-    .metric-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+    .metric-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .metric-box {
         background: white; border: 1px solid #dce7f5;
         border-radius: 8px; padding: 0.9rem 1.2rem;
@@ -100,6 +100,7 @@ st.markdown("""
 
     div[data-testid="stExpander"] {
         border: 1px solid #dce7f5 !important; border-radius: 8px !important;
+        margin-bottom: 0.6rem !important;
     }
     div[data-testid="stTabs"] button { font-weight: 600; }
     .stButton > button { border-radius: 8px; }
@@ -788,13 +789,20 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # THREE-COLUMN LAYOUT
 # ─────────────────────────────────────────────────────────────────────────────
-config_col, preview_col, sf_col = st.columns([1, 1.5, 1], gap="large")
+config_col, preview_col, sf_col = st.columns([1.5, 1.2, 0.9], gap="large")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # LEFT — CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════
 with config_col:
     st.markdown("### ⚙️ Configuration")
+
+    # ── READY TO GENERATE RIBBON ─────────────────────────────────────────
+    if not st.session_state.generated:
+        st.markdown(
+            '<div class="config-ribbon">🏛️ <strong>Configure parameters</strong> → click <strong>Generate Dataset</strong></div>',
+            unsafe_allow_html=True
+        )
 
     # ── CONFIG RIBBON ────────────────────────────────────────────────────
     st.markdown(
@@ -864,7 +872,7 @@ with config_col:
             st.caption(f"📌 Loaded: **{st.session_state.loaded_config_name}**")
 
     # ── TWO-COLUMN PARAMETERS ────────────────────────────────────────────
-    col1, col2 = st.columns(2, gap="small")
+    col1, col2 = st.columns(2, gap="micro")
 
     with col1:
         with st.expander("🗺️ Geographic Scope", expanded=True):
@@ -1016,15 +1024,7 @@ if generate_btn:
 # MIDDLE — PREVIEW & DOWNLOAD
 # ═════════════════════════════════════════════════════════════════════════════
 with preview_col:
-    if not st.session_state.generated:
-        st.markdown("""
-        <div style="text-align:center;padding:4rem 2rem;color:#888;
-             border:2px dashed #dce7f5;border-radius:12px;margin-top:1rem;">
-            <div style="font-size:3rem;">🏛️</div>
-            <div style="font-size:1.2rem;font-weight:600;margin-top:1rem;color:#2563a8;">Ready to Generate</div>
-            <div style="margin-top:0.5rem;">Configure parameters on the left,<br>then click <strong>Generate Dataset</strong>.</div>
-        </div>""", unsafe_allow_html=True)
-    else:
+    if st.session_state.generated:
         df_camp  = st.session_state.df_campaigns
         df_leads = st.session_state.df_leads
         df_accts = st.session_state.df_accounts
