@@ -215,24 +215,27 @@ def _parse_and_configure_dataset(user_request: str) -> str:
     if err:
         return f"❌ Cannot parse request: {err}"
     
-    # Use Claude to extract parameters
-    extraction_prompt = f"""
-User request: "{user_request}"
+    # Use Claude to extract parameters with a simpler, clearer prompt
+    extraction_prompt = f"""Extract parameters from this request: "{user_request}"
 
-Extract dataset parameters from this request. Return ONLY valid JSON with these fields:
+Return ONLY valid JSON. Null any field you cannot determine:
+
 {{
-  "num_accounts": <number or null>,
-  "industries": [<list of industries from: Insurance, Financial Services, Healthcare, Real Estate, Manufacturing, Technology, Retail, Hospitality>],
-  "region": <one of: "All 50 States", "Northeast", "Midwest", "South", "West", "Custom"> or null,
-  "custom_states": [<list of state abbreviations if region=Custom>],
-  "num_campaigns": <number or null>,
-  "policy_types": [<list of policy types from: Homeowners, Auto, Life, Commercial Property, General Liability, Workers Compensation, Umbrella>],
-  "carriers": [<list of carrier names>],
-  "contacts_per_account": <number 1-5 or null>,
-  "leads_per_campaign": <number or null>
+  "num_accounts": null or a number,
+  "industries": [] or list from [Insurance, Financial Services, Healthcare, Real Estate, Manufacturing, Technology, Retail, Hospitality],
+  "region": null or one of [All 50 States, Northeast, Midwest, South, West, Custom],
+  "custom_states": [] or [CA, OR, WA, etc.] if region is Custom,
+  "num_campaigns": null or a number,
+  "policy_types": [] or list from [Homeowners, Auto, Life, Commercial Property, General Liability, Workers Compensation, Umbrella],
+  "carriers": [] or list of carrier names,
+  "contacts_per_account": null or 1-5,
+  "leads_per_campaign": null or a number
 }}
 
-Return ONLY the JSON object, no explanation. If a field cannot be determined, use null.
+Example input: "100 accounts in CA and OR, insurance industry"
+Example output: {{"num_accounts": 100, "industries": ["Insurance"], "region": "Custom", "custom_states": ["CA", "OR"], "num_campaigns": null, "policy_types": [], "carriers": [], "contacts_per_account": null, "leads_per_campaign": null}}
+
+IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no other text.
 """
     
     try:
@@ -243,17 +246,30 @@ Return ONLY the JSON object, no explanation. If a field cannot be determined, us
         )
         
         json_str = response.content[0].text.strip()
+        
+        # Clean up the response in case there's extra text
+        if json_str.startswith("```"):
+            # Remove markdown code blocks if present
+            json_str = json_str.split("```")[1]
+            if json_str.startswith("json"):
+                json_str = json_str[4:]
+            json_str = json_str.strip()
+        
+        # Try to extract JSON if wrapped in other text
+        if "{" in json_str and "}" in json_str:
+            json_str = json_str[json_str.index("{"):json_str.rindex("}")+1]
+        
         # Try to parse JSON
         try:
             params = json.loads(json_str)
-        except json.JSONDecodeError:
-            # If JSON parsing fails, extract from text
-            return "⚠️ I had trouble parsing that request. Could you be more specific? For example: '100 accounts, insurance industry, CA and OR'"
+        except json.JSONDecodeError as e:
+            st.write(f"Debug: Claude returned: {json_str[:200]}")  # Debug output
+            return f"⚠️ Parsing issue with your request. Please try: '100 accounts, insurance industry, CA and OR'"
         
         ss = st.session_state
         
         # Apply configuration
-        config_summary = ["**Configuring dataset:**"]
+        config_summary = ["**✅ Configuring dataset:**"]
         
         if params.get("num_accounts"):
             ss["cfg_num_accounts"] = int(params["num_accounts"])
@@ -268,7 +284,7 @@ Return ONLY the JSON object, no explanation. If a field cannot be determined, us
         
         if params.get("region"):
             region = params["region"]
-            if region in ["Northeast", "Midwest", "South", "West"]:
+            if region in ["Northeast", "Midwest", "South", "West", "All 50 States"]:
                 ss["cfg_region"] = region
                 config_summary.append(f"  • Region: {region}")
             elif region == "Custom" and params.get("custom_states"):
@@ -296,19 +312,17 @@ Return ONLY the JSON object, no explanation. If a field cannot be determined, us
             config_summary.append(f"  • Leads/Campaign: {params['leads_per_campaign']}")
         
         if params.get("carriers"):
-            ss["cfg_carriers"] = params["carriers"][:10]  # Limit to 10
+            ss["cfg_carriers"] = params["carriers"][:10]
             config_summary.append(f"  • Carriers: {', '.join(ss['cfg_carriers'])}")
         
         msg = "\n".join(config_summary)
-        msg += "\n\n**Next steps:**\n"
-        msg += "1. Click the **⚡ Generate Dataset** button in the middle column\n"
-        msg += "2. Once done, ask me to **save config and generate csv**\n"
+        msg += "\n\n👉 **Next:** Click **⚡ Generate Dataset** in the middle column, then ask me to **save config and generate csv**"
         
         ss["_parsed_dataset_request"] = True
         return msg
         
     except Exception as e:
-        return f"⚠️ Error parsing request: {e}. Please try: '100 accounts, insurance industry, California'"
+        return f"⚠️ Error: {str(e)[:100]}. Try being more specific: '100 accounts, insurance industry, CA and OR'"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
