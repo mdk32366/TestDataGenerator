@@ -43,6 +43,16 @@ def list_configs_for_chat() -> list[str]:
     """List all available saved configurations."""
     return sorted([f.stem for f in CONFIG_DIR.glob("*.json")])
 
+def save_config_for_chat(config_name: str, config_data: dict) -> tuple[bool, str]:
+    """Save a configuration to disk. Returns (success, message)."""
+    try:
+        config_file = CONFIG_DIR / f"{config_name}.json"
+        with open(config_file, "w") as f:
+            json.dump(config_data, f, indent=2)
+        return True, f"✅ Config '{config_name}' saved successfully."
+    except Exception as e:
+        return False, f"❌ Failed to save config: {e}"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LAZY IMPORT — anthropic only needed when chat is used
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,12 +232,73 @@ def _generate_csv_files() -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SAVE CONFIGURATION ACTION
+# ─────────────────────────────────────────────────────────────────────────────
+def _save_current_config() -> str:
+    """
+    Save the current dataset configuration from session state.
+    Returns a success/info message and prompts to generate CSVs.
+    """
+    ss = st.session_state
+    
+    # Collect all current configuration values
+    try:
+        config_data = {
+            "region": ss.get("cfg_region", "All 50 States"),
+            "custom_states": ss.get("cfg_custom_states", []) if ss.get("cfg_region") == "Custom" else [],
+            "num_campaigns": ss.get("cfg_num_campaigns", 0),
+            "campaign_names": ss.get("cfg_campaign_names", ""),
+            "campaign_type": ss.get("cfg_campaign_type", ""),
+            "campaign_status": ss.get("cfg_campaign_status", []),
+            "budget_range": ss.get("cfg_budget_range", [10, 50]),
+            "revenue_range": ss.get("cfg_revenue_range", [100, 500]),
+            "leads_per_campaign": ss.get("cfg_leads_per_campaign", 0),
+            "num_accounts": ss.get("cfg_num_accounts", 0),
+            "contacts_per_account": ss.get("cfg_contacts_per_account", 0),
+            "industries": ss.get("cfg_industries", []),
+            "acct_types": ss.get("cfg_acct_types", []),
+            "acct_sources": ss.get("cfg_acct_sources", []),
+            "contact_titles": ss.get("cfg_contact_titles", []),
+            "closed_won_pct": ss.get("cfg_closed_won_pct", 0),
+            "opp_amount_range": ss.get("cfg_opp_amount_range", [25, 300]),
+            "closed_months_back": ss.get("cfg_closed_months_back", 0),
+            "open_months_fwd": ss.get("cfg_open_months_fwd", 0),
+            "opp_types": ss.get("cfg_opp_types", []),
+            "policy_types": ss.get("cfg_policy_types", []),
+            "carriers": ss.get("cfg_carriers", []),
+            "premium_pct_range": ss.get("cfg_premium_pct_range", [3, 8]),
+            "payment_methods": ss.get("cfg_payment_methods", []),
+            "payment_freqs": ss.get("cfg_payment_freqs", []),
+            "seed_val": ss.get("cfg_seed_val", 0),
+            "saved_at": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        return f"❌ Error collecting configuration: {e}"
+    
+    # Generate a descriptive config name from the current settings
+    region = config_data.get("region", "All 50 States")
+    accounts = config_data.get("num_accounts", 0)
+    timestamp = datetime.now().strftime("%m%d_%H%M")
+    config_name = f"{region.replace(' ', '_')}_{accounts}accts_{timestamp}"
+    
+    # Save the configuration
+    success, msg = save_config_for_chat(config_name, config_data)
+    if not success:
+        return f"❌ Failed to save configuration: {msg}"
+    
+    # Return success message and prompt for CSV generation
+    ss["last_saved_config"] = config_name
+    return f"✅ **Configuration saved as '{config_name}'**\n\nWould you like me to generate CSV files now? Click the **📥 Generate CSV files** button or let me know!"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # QUICK-ACTION BUTTONS
 # ─────────────────────────────────────────────────────────────────────────────
 def _get_quick_actions():
     """Build quick action list, including saved configs."""
     actions = [
         ("🔢 How many records?",       "Summarise the current dataset: how many records are in each object and what is the total?"),
+        ("� Save Current Config",     "_SAVE_CONFIG_ACTION_"),
         ("📥 Generate CSV files",      "_CSV_ACTION_"),
         ("⚠️ Why did my upload fail?", "Walk me through the most common reasons an InsurancePolicy upload fails and how to fix each one."),
         ("🔑 Security token help",     "Explain what a Salesforce security token is, when it's required, and how to reset it."),
@@ -239,7 +310,7 @@ def _get_quick_actions():
     # Add saved config actions
     configs = list_configs_for_chat()
     if configs:
-        actions.insert(5, ("📂 Show saved configs", f"List my saved configurations: {', '.join(configs)}"))
+        actions.insert(6, ("📂 Show saved configs", f"List my saved configurations: {', '.join(configs)}"))
     
     return actions
 
@@ -288,8 +359,18 @@ upload troubleshooting, or data strategy.
         for i in range(0, len(quick_actions), 2):
             qa_col1, qa_col2 = st.columns(2, gap="small")
             label1, prompt1 = quick_actions[i]
+            # Handle save config action specially
+            if prompt1 == "_SAVE_CONFIG_ACTION_":
+                if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
+                    msg = _save_current_config()
+                    st.session_state.agent_messages.append({
+                        "role": "assistant",
+                        "content": msg,
+                        "ts": datetime.now().strftime("%H:%M"),
+                    })
+                    st.rerun()
             # Handle CSV action specially
-            if prompt1 == "_CSV_ACTION_":
+            elif prompt1 == "_CSV_ACTION_":
                 if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
                     msg = _generate_csv_files()
                     st.session_state.agent_messages.append({
@@ -304,8 +385,18 @@ upload troubleshooting, or data strategy.
                     st.rerun()
             if i + 1 < len(quick_actions):
                 label2, prompt2 = quick_actions[i + 1]
+                # Handle save config action specially
+                if prompt2 == "_SAVE_CONFIG_ACTION_":
+                    if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
+                        msg = _save_current_config()
+                        st.session_state.agent_messages.append({
+                            "role": "assistant",
+                            "content": msg,
+                            "ts": datetime.now().strftime("%H:%M"),
+                        })
+                        st.rerun()
                 # Handle CSV action specially
-                if prompt2 == "_CSV_ACTION_":
+                elif prompt2 == "_CSV_ACTION_":
                     if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
                         msg = _generate_csv_files()
                         st.session_state.agent_messages.append({
