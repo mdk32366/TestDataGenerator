@@ -76,6 +76,11 @@ st.markdown("""
         border-radius: 8px; padding: 0.8rem 1rem;
         color: #7a1a1a; font-size: 0.88rem; margin-bottom: 1rem;
     }
+    /* Reduce spacing between chat and configuration sections */
+    .stColumns [data-testid="column"] {
+        margin-top: -1rem;
+    }
+
     .load-log {
         background: #0d1117; color: #c9d1d9;
         border-radius: 8px; padding: 1rem 1.2rem;
