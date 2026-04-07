@@ -108,6 +108,8 @@ You can perform the following actions directly with this assistant:
 in California, insurance industry, with Home and Auto policies"), the system will intelligently parse \
 their request using Claude and auto-configure all the sidebar parameters. The user then just needs to \
 click **Generate Dataset** in the middle column. This is the recommended workflow!
+- **New Chat** — Click the **📝 New Chat** button to start fresh with a brand new conversation. Chat \
+history will be cleared, allowing you to ask about a completely different dataset.
 - **Generate CSV files** — If the user asks you to "generate csv", "create csv", or "download csv", \
 the system will automatically create downloadable CSVs for all six objects. You can trigger this by \
 mentioning it naturally in the chat, OR the user can click the button. Simply respond that you've \
@@ -595,6 +597,14 @@ upload troubleshooting, or data strategy.
                 st.rerun()
 
     with chat_col:
+        # ── New Chat button ────────────────────────────────────────────────
+        chat_controls = st.columns([2, 1])
+        with chat_controls[1]:
+            if st.button("📝 New Chat", use_container_width=True, type="secondary"):
+                st.session_state.agent_messages = []
+                st.session_state.agent_input_key += 1
+                st.rerun()
+        
         # ── Chat history display ──────────────────────────────────────────
         history_container = st.container(height=480)
         with history_container:
