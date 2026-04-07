@@ -57,7 +57,14 @@ def _get_client():
         # Try .env fallback
         try:
             from dotenv import load_dotenv
-            load_dotenv(encoding='utf-8-sig')
+            try:
+                load_dotenv(encoding='utf-8-sig')
+            except (UnicodeDecodeError, Exception):
+                # If .env file is corrupted, try without specifying encoding or skip it
+                try:
+                    load_dotenv()
+                except Exception:
+                    pass  # silently skip if .env is unreadable
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         except ImportError:
             pass
