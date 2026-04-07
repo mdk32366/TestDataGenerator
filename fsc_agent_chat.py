@@ -211,7 +211,8 @@ def _parse_and_configure_dataset(user_request: str) -> str:
     """
     Use Claude to intelligently parse a dataset request and configure the app.
     Extracts: accounts, industries, regions, campaigns, etc.
-    Returns a confirmation message.
+    Also identifies which objects were explicitly requested.
+    Returns a confirmation message with a choice about CSV generation scope.
     """
     client, err = _get_client()
     if err:
@@ -231,13 +232,15 @@ Return ONLY valid JSON. Null any field you cannot determine:
   "policy_types": [] or list from [Homeowners, Auto, Life, Commercial Property, General Liability, Workers Compensation, Umbrella],
   "carriers": [] or list of carrier names,
   "contacts_per_account": null or 1-5,
-  "leads_per_campaign": null or a number
+  "leads_per_campaign": null or a number,
+  "explicitly_requested_objects": [] or list from [Accounts, Leads, Campaigns, Contacts, Opportunities, Policies] - only include objects explicitly mentioned in the request
 }}
 
 Example input: "100 accounts in CA and OR, insurance industry"
-Example output: {{"num_accounts": 100, "industries": ["Insurance"], "region": "Custom", "custom_states": ["CA", "OR"], "num_campaigns": null, "policy_types": [], "carriers": [], "contacts_per_account": null, "leads_per_campaign": null}}
+Example output: {{"num_accounts": 100, "industries": ["Insurance"], "region": "Custom", "custom_states": ["CA", "OR"], "num_campaigns": null, "policy_types": [], "carriers": [], "contacts_per_account": null, "leads_per_campaign": null, "explicitly_requested_objects": ["Accounts"]}}
 
 IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no other text.
+For explicitly_requested_objects, ONLY include objects that were specifically mentioned by the user.
 """
     
     try:
@@ -251,7 +254,6 @@ IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no 
         
         # Clean up the response in case there's extra text
         if json_str.startswith("```"):
-            # Remove markdown code blocks if present
             json_str = json_str.split("```")[1]
             if json_str.startswith("json"):
                 json_str = json_str[4:]
@@ -265,12 +267,11 @@ IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no 
         try:
             params = json.loads(json_str)
         except json.JSONDecodeError as e:
-            st.write(f"Debug: Claude returned: {json_str[:200]}")  # Debug output
             return f"⚠️ Parsing issue with your request. Please try: '100 accounts, insurance industry, CA and OR'"
         
         ss = st.session_state
         
-        # Apply configuration
+        # Apply configuration (only explicitly requested fields)
         config_summary = ["**✅ Configuring dataset:**"]
         
         if params.get("num_accounts"):
@@ -317,8 +318,20 @@ IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no 
             ss["cfg_carriers"] = params["carriers"][:10]
             config_summary.append(f"  • Carriers: {', '.join(ss['cfg_carriers'])}")
         
+        # Store what objects were explicitly requested
+        explicitly_requested = params.get("explicitly_requested_objects", [])
+        ss["_requested_csv_objects"] = explicitly_requested if explicitly_requested else None
+        
         msg = "\n".join(config_summary)
-        msg += "\n\n👉 **Next:** Click **⚡ Generate Dataset** in the middle column, then ask me to **save config and generate csv**"
+        msg += "\n\n👉 **Next steps:**\n"
+        msg += "1. Click **⚡ Generate Dataset** in the middle column\n"
+        
+        # Ask about CSV scope based on what was explicitly requested
+        if explicitly_requested and len(explicitly_requested) < 6:
+            requested_str = ", ".join(explicitly_requested)
+            msg += f"2. When done, ask me: **generate {requested_str.lower()} csvs** (or ask for **all csvs**)\n"
+        else:
+            msg += "2. When done, ask me to **generate csvs**\n"
         
         ss["_parsed_dataset_request"] = True
         return msg
@@ -330,27 +343,42 @@ IMPORTANT: Return ONLY the JSON object, starting with {{ and ending with }}, no 
 # ─────────────────────────────────────────────────────────────────────────────
 # CSV GENERATION ACTION
 # ─────────────────────────────────────────────────────────────────────────────
-def _generate_csv_files() -> str:
+def _generate_csv_files(requested_objects: list[str] = None) -> str:
     """
-    Generate CSV files from the current dataset and store them in session state.
+    Generate CSV files from the current dataset.
+    If requested_objects is specified, only generate those; otherwise generate all.
     Returns a success/info message.
     """
     ss = st.session_state
     if not ss.get("generated"):
         return "❌ No dataset has been generated yet. Please generate a dataset first from the configuration panel."
     
-    # Check that we have dataframes
-    dfs = {
-        "Campaigns": ss.get("df_campaigns"),
-        "Leads": ss.get("df_leads"),
-        "Accounts": ss.get("df_accounts"),
-        "Contacts": ss.get("df_contacts"),
-        "Opportunities": ss.get("df_opps"),
-        "InsurancePolicies": ss.get("df_policies"),
+    # Determine which objects to generate
+    if requested_objects is None:
+        # Check if there were explicitly requested objects from parsing
+        requested_objects = ss.get("_requested_csv_objects", None)
+    
+    # Map object names to dataframe keys
+    all_objects = {
+        "Accounts": "df_accounts",
+        "Leads": "df_leads",
+        "Campaigns": "df_campaigns",
+        "Contacts": "df_contacts",
+        "Opportunities": "df_opps",
+        "Policies": "df_policies",
     }
     
+    # Determine what to generate
+    if requested_objects:
+        # Generate only requested objects
+        objects_to_generate = {k: v for k, v in all_objects.items() if k in requested_objects}
+    else:
+        # Generate all objects
+        objects_to_generate = all_objects
+    
     csv_files = {}
-    for name, df in dfs.items():
+    for name, df_key in objects_to_generate.items():
+        df = ss.get(df_key)
         if df is not None and len(df) > 0:
             try:
                 csv_data = df.to_csv(index=False)
@@ -358,13 +386,16 @@ def _generate_csv_files() -> str:
             except Exception as e:
                 return f"❌ Error generating CSV for {name}: {e}"
     
+    if not csv_files:
+        return "⚠️ No data available to export."
+    
     # Store in session state for download
     ss["csv_files_ready"] = csv_files
     ss["csv_generation_timestamp"] = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     count = len(csv_files)
-    total_rows = sum(len(df) for df in dfs.values() if df is not None)
-    return f"✅ **CSV files generated!** {count} files ready ({total_rows:,} total records). Scroll to the **{{ 📥 Download }}** section in the center column to download."
+    total_rows = sum(len(ss.get(df_key, [])) for df_key in objects_to_generate.values() if ss.get(df_key) is not None)
+    return f"✅ **CSV files ready:** {count} file{'s' if count != 1 else ''} ({total_rows:,} total records). Scroll to the **{{ 📥 Download }}** section in the middle column to download. Use 'save config and generate csv' to save your config at the same time."
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -720,9 +751,17 @@ def _detect_and_execute_actions(user_text: str) -> list[str]:
     save_keywords = ["save config", "save configuration", "save this config", "save current config", "save the config"]
     should_save = any(kw in user_lower for kw in save_keywords)
     
-    # Detect CSV generation action
+    # Detect CSV generation action and extract which objects (if any)
     csv_keywords = ["generate csv", "create csv", "make csv", "download csv", "create csvs", "generate csvs"]
     should_generate_csv = any(kw in user_lower for kw in csv_keywords)
+    
+    # Extract specific objects if mentioned (e.g., "generate accounts csvs" or "accounts and policies")
+    requested_objects = []
+    if should_generate_csv:
+        object_names = ["Accounts", "Leads", "Campaigns", "Contacts", "Opportunities", "Policies"]
+        for obj in object_names:
+            if obj.lower() in user_lower:
+                requested_objects.append(obj)
     
     # Detect dataset configuration request (contains numbers + industry/region keywords)
     dataset_indicators = ["account", "accounts", "campaign", "campaigns", "industry", "industries", 
@@ -754,7 +793,7 @@ def _detect_and_execute_actions(user_text: str) -> list[str]:
     
     # Execute CSV generation if requested
     if should_generate_csv:
-        msg = _generate_csv_files()
+        msg = _generate_csv_files(requested_objects if requested_objects else None)
         messages.append({
             "role": "assistant",
             "content": msg,
