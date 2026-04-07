@@ -911,7 +911,11 @@ with config_col:
             sel_acct_sources  = st.multiselect("Account Sources", ACCOUNT_SOURCES, default=ACCOUNT_SOURCES, key="cfg_acct_sources")
             sel_contact_titles= st.multiselect("Contact Titles",  CONTACT_TITLES,  default=CONTACT_TITLES, key="cfg_contact_titles")
 
-    # Back to full width for remaining sections
+# ═════════════════════════════════════════════════════════════════════════════
+# MIDDLE — CONFIGURATION (UPPER) & PREVIEW
+# ═════════════════════════════════════════════════════════════════════════════
+with preview_col:
+    # ── OPPORTUNITIES SECTION ─────────────────────────────────────────────
     with st.expander("💼 Opportunities", expanded=True):
         closed_won_pct     = st.slider("% Closed Won", 0, 100, 50, key="cfg_closed_won_pct")
         opp_amount_range   = st.slider("Amount Range ($K)", 5, 2000, (25,300), key="cfg_opp_amount_range")
@@ -919,6 +923,7 @@ with config_col:
         open_months_fwd    = st.slider("Open: months ahead",    1, 24,  9, key="cfg_open_months_fwd")
         sel_opp_types      = st.multiselect("Opp Types", OPP_TYPES, default=OPP_TYPES, key="cfg_opp_types")
 
+    # ── INSURANCE POLICIES SECTION ────────────────────────────────────────
     with st.expander("📋 Insurance Policies", expanded=True):
         sel_policy_types = st.multiselect("Policy Types", POLICY_TYPES,
             default=["Homeowners","Auto","Life","Commercial Property","General Liability","Workers Compensation","Umbrella"], key="cfg_policy_types")
@@ -927,6 +932,7 @@ with config_col:
         sel_payment_methods= st.multiselect("Payment Methods",   PAYMENT_METHODS,  default=PAYMENT_METHODS, key="cfg_payment_methods")
         sel_payment_freqs  = st.multiselect("Payment Frequencies",PAYMENT_FREQS,   default=PAYMENT_FREQS, key="cfg_payment_freqs")
 
+    # ── ADVANCED SECTION ──────────────────────────────────────────────────
     with st.expander("🎲 Advanced", expanded=False):
         seed_val = st.number_input("Random Seed (0 = truly random)", min_value=0, max_value=99999, value=0, key="cfg_seed_val")
 
@@ -979,26 +985,22 @@ with config_col:
                 else:
                     st.error(msg)
 
-# ═════════════════════════════════════════════════════════════════════════════
-# GENERATION LOGIC
-# ═════════════════════════════════════════════════════════════════════════════
-if generate_btn:
-    errors = []
-    if not state_pool:        errors.append("Select at least one state.")
-    if not sel_industries:    errors.append("Select at least one Industry.")
-    if not sel_policy_types:  errors.append("Select at least one Policy Type.")
-    if not sel_carriers:      errors.append("Select at least one Carrier.")
-    if not sel_payment_methods: errors.append("Select at least one Payment Method.")
-    if not sel_payment_freqs:   errors.append("Select at least one Payment Frequency.")
+    # ── GENERATION LOGIC ──────────────────────────────────────────────────
+    if generate_btn:
+        errors = []
+        if not state_pool:        errors.append("Select at least one state.")
+        if not sel_industries:    errors.append("Select at least one Industry.")
+        if not sel_policy_types:  errors.append("Select at least one Policy Type.")
+        if not sel_carriers:      errors.append("Select at least one Carrier.")
+        if not sel_payment_methods: errors.append("Select at least one Payment Method.")
+        if not sel_payment_freqs:   errors.append("Select at least one Payment Frequency.")
 
-    if errors:
-        with preview_col:
+        if errors:
             for e in errors:
                 st.error(f"⚠️ {e}")
-    else:
-        rng_seed = seed_val if seed_val > 0 else random.randint(1,99999)
-        random.seed(rng_seed)
-        with preview_col:
+        else:
+            rng_seed = seed_val if seed_val > 0 else random.randint(1,99999)
+            random.seed(rng_seed)
             with st.spinner("Generating…"):
                 df_camp  = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
                                               campaign_status, budget_range, revenue_range)
@@ -1012,18 +1014,61 @@ if generate_btn:
                 df_pols  = generate_policies(df_opps, df_accts, sel_policy_types, sel_carriers,
                                              sel_payment_methods, sel_payment_freqs, premium_pct_range)
 
-        st.session_state.update({
-            "df_campaigns": df_camp, "df_leads": df_leads, "df_accounts": df_accts,
-            "df_contacts": df_cont, "df_opps": df_opps, "df_policies": df_pols,
-            "generated": True, "_seed_used": rng_seed,
-            "load_log": [], "load_results": {}, "load_running": False, "load_done": False,
-        })
-        st.rerun()
+            st.session_state.update({
+                "df_campaigns": df_camp, "df_leads": df_leads, "df_accounts": df_accts,
+                "df_contacts": df_cont, "df_opps": df_opps, "df_policies": df_pols,
+                "generated": True, "_seed_used": rng_seed,
+                "load_log": [], "load_results": {}, "load_running": False, "load_done": False,
+            })
+            st.rerun()
 
-# ═════════════════════════════════════════════════════════════════════════════
-# MIDDLE — PREVIEW & DOWNLOAD
-# ═════════════════════════════════════════════════════════════════════════════
-with preview_col:
+    # ── PREVIEW & DOWNLOAD SECTION ────────────────────────────────────────
+    st.markdown("---")
+    if st.session_state.generated:
+        df_camp  = st.session_state.df_campaigns
+        df_leads = st.session_state.df_leads
+        df_accts = st.session_state.df_accounts
+        df_cont  = st.session_state.df_contacts
+        df_opps  = st.session_state.df_opps
+        df_pols  = st.session_state.df_policies
+        cwc = int(df_opps["_is_won"].sum()) if "_is_won" in df_opps.columns else 0
+        seed_used = st.session_state.get("_seed_used","?")
+
+        st.markdown(
+            f"""<div class="metric-row">
+            {metric_html(len(df_camp), "Campaigns")}
+            {metric_html(len(df_leads),"Leads")}
+            {metric_html(len(df_accts),"Accounts")}
+            {metric_html(len(df_cont), "Contacts")}
+            {metric_html(len(df_opps), "Opps")}
+            {metric_html(cwc,          "Closed Won")}
+            {metric_html(len(df_pols), "Policies")}
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown(
+            f'<div class="success-box">✅ Generated · Seed <code>{seed_used}</code> · '
+            f'{df_accts["BillingState"].nunique()} states</div>', unsafe_allow_html=True)
+
+        # Downloads
+        st.markdown("#### 📥 Download")
+        all_dfs = {
+            "01_Campaigns.csv": df_camp, "02_Leads.csv": df_leads,
+            "03_Accounts.csv": df_accts, "04_Contacts.csv": df_cont,
+            "05_Opportunities.csv": df_opps, "06_InsurancePolicies.csv": df_pols,
+        }
+        dc1, dc2 = st.columns([1.3,1])
+        with dc1:
+            st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
+                file_name=f"fsc_test_data_seed{seed_used}.zip",
+                mime="application/zip", use_container_width=True, type="primary")
+        with dc2:
+            sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed")
+        if sel_file:
+            st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
+                file_name=sel_file, mime="text/csv", use_container_width=True)
+
+    # ── PREVIEW & DOWNLOAD SECTION ────────────────────────────────────────
+    st.markdown("---")
     if st.session_state.generated:
         df_camp  = st.session_state.df_campaigns
         df_leads = st.session_state.df_leads
