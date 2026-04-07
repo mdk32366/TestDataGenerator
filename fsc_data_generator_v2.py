@@ -992,6 +992,7 @@ with preview_col:
 
     # ── GENERATION LOGIC ──────────────────────────────────────────────────
     if generate_btn:
+        st.session_state.generated = False  # Clear previous download section immediately
         errors = []
         if not state_pool:        errors.append("Select at least one state.")
         if not sel_industries:    errors.append("Select at least one Industry.")
