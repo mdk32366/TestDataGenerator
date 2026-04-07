@@ -1007,18 +1007,90 @@ with preview_col:
         else:
             rng_seed = seed_val if seed_val > 0 else random.randint(1,99999)
             random.seed(rng_seed)
+            
+            # Check if specific objects were requested by the chat
+            requested_objects = st.session_state.get("_requested_csv_objects", None)
+            
             with st.spinner("Generating…"):
-                df_camp  = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
-                                              campaign_status, budget_range, revenue_range)
-                df_leads = generate_leads(num_campaigns*leads_per_campaign, df_camp, state_pool,
-                                          LEAD_STATUSES, LEAD_SOURCES, sel_industries)
-                df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
-                                             sel_acct_types, sel_acct_sources)
-                df_cont  = generate_contacts(df_accts, contacts_per_account, sel_contact_titles)
-                df_opps  = generate_opportunities(df_accts, closed_won_pct, sel_opp_types,
-                                                  opp_amount_range, closed_months_back, open_months_fwd)
-                df_pols  = generate_policies(df_opps, df_accts, sel_policy_types, sel_carriers,
-                                             sel_payment_methods, sel_payment_freqs, premium_pct_range)
+                # Always generate what was explicitly requested, plus their dependencies
+                # If nothing was explicitly requested, generate all objects (default behavior)
+                
+                if requested_objects is None or len(requested_objects) == 0:
+                    # Generate all objects (default - no specific request from chat)
+                    df_camp  = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                  campaign_status, budget_range, revenue_range)
+                    df_leads = generate_leads(num_campaigns*leads_per_campaign, df_camp, state_pool,
+                                              LEAD_STATUSES, LEAD_SOURCES, sel_industries)
+                    df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
+                                                 sel_acct_types, sel_acct_sources)
+                    df_cont  = generate_contacts(df_accts, contacts_per_account, sel_contact_titles)
+                    df_opps  = generate_opportunities(df_accts, closed_won_pct, sel_opp_types,
+                                                      opp_amount_range, closed_months_back, open_months_fwd)
+                    df_pols  = generate_policies(df_opps, df_accts, sel_policy_types, sel_carriers,
+                                                 sel_payment_methods, sel_payment_freqs, premium_pct_range)
+                else:
+                    # Generate only requested objects + dependencies
+                    req_lower = [obj.lower() for obj in requested_objects]
+                    
+                    df_camp = None
+                    df_leads = None
+                    df_accts = None
+                    df_cont = None
+                    df_opps = None
+                    df_pols = None
+                    
+                    # Campaigns
+                    if "campaigns" in req_lower:
+                        df_camp = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                      campaign_status, budget_range, revenue_range)
+                    
+                    # Leads need Campaigns
+                    if "leads" in req_lower:
+                        if df_camp is None:
+                            df_camp = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                          campaign_status, budget_range, revenue_range)
+                        df_leads = generate_leads(num_campaigns*leads_per_campaign, df_camp, state_pool,
+                                                  LEAD_STATUSES, LEAD_SOURCES, sel_industries)
+                    
+                    # Accounts
+                    if "accounts" in req_lower:
+                        df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
+                                                     sel_acct_types, sel_acct_sources)
+                    
+                    # Contacts need Accounts
+                    if "contacts" in req_lower:
+                        if df_accts is None:
+                            df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
+                                                         sel_acct_types, sel_acct_sources)
+                        df_cont = generate_contacts(df_accts, contacts_per_account, sel_contact_titles)
+                    
+                    # Opportunities need Accounts (and Campaigns for context)
+                    if "opportunities" in req_lower:
+                        if df_accts is None:
+                            df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
+                                                         sel_acct_types, sel_acct_sources)
+                        if df_camp is None:
+                            df_camp = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                          campaign_status, budget_range, revenue_range)
+                        df_opps = generate_opportunities(df_accts, closed_won_pct, sel_opp_types,
+                                                         opp_amount_range, closed_months_back, open_months_fwd)
+                    
+                    # Policies need Opportunities and Accounts
+                    if "policies" in req_lower:
+                        if df_accts is None:
+                            df_accts = generate_accounts(num_accounts, state_pool, sel_industries,
+                                                         sel_acct_types, sel_acct_sources)
+                        if df_camp is None:
+                            df_camp = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                          campaign_status, budget_range, revenue_range)
+                        if df_opps is None:
+                            if df_camp is None:
+                                df_camp = generate_campaigns(num_campaigns, campaign_names_list, campaign_type,
+                                                              campaign_status, budget_range, revenue_range)
+                            df_opps = generate_opportunities(df_accts, closed_won_pct, sel_opp_types,
+                                                             opp_amount_range, closed_months_back, open_months_fwd)
+                        df_pols = generate_policies(df_opps, df_accts, sel_policy_types, sel_carriers,
+                                                    sel_payment_methods, sel_payment_freqs, premium_pct_range)
 
             st.session_state.update({
                 "df_campaigns": df_camp, "df_leads": df_leads, "df_accounts": df_accts,
