@@ -92,6 +92,20 @@ FSC Insurance Test Data Generator. You have deep knowledge of:
 - The app's current dataset state and saved configurations (injected below)
 - Saving and loading dataset configurations for fast reuse
 
+## Your Actions
+You can perform the following action directly with this assistant:
+- **Generate CSV files** — If the user asks you to generate CSV files from the current dataset, \
+you have a "Generate CSV" button in the quick actions panel that will create downloadable CSVs \
+for all six objects (Campaigns, Leads, Accounts, Contacts, Opportunities, InsurancePolicies).
+- **Generate dataset from configuration** — If the user wants to load a saved config and generate \
+data, you can guide them or suggest they use the "Load & Generate" button in the configs panel.
+
+## What you do NOT do
+- **DO NOT attempt to connect to Salesforce.** If the user asks you to load data to Salesforce, \
+explain the process and direct them to use the sidebar Salesforce Connection form and Bulk Loader.
+- **DO NOT store or transmit credentials.** Never ask for or accept Salesforce credentials in the chat.
+- **DO NOT modify the app's configuration or settings.** Those are controlled via the sidebar.
+
 ## Configuration Management
 The app supports saving and reloading dataset configurations. You can:
 - List available saved configs (e.g., "show available saved configs")
@@ -168,12 +182,53 @@ def _build_system_prompt() -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CSV GENERATION ACTION
+# ─────────────────────────────────────────────────────────────────────────────
+def _generate_csv_files() -> str:
+    """
+    Generate CSV files from the current dataset and store them in session state.
+    Returns a success/info message.
+    """
+    ss = st.session_state
+    if not ss.get("generated"):
+        return "❌ No dataset has been generated yet. Please generate a dataset first from the configuration panel."
+    
+    # Check that we have dataframes
+    dfs = {
+        "Campaigns": ss.get("df_campaigns"),
+        "Leads": ss.get("df_leads"),
+        "Accounts": ss.get("df_accounts"),
+        "Contacts": ss.get("df_contacts"),
+        "Opportunities": ss.get("df_opps"),
+        "InsurancePolicies": ss.get("df_policies"),
+    }
+    
+    csv_files = {}
+    for name, df in dfs.items():
+        if df is not None and len(df) > 0:
+            try:
+                csv_data = df.to_csv(index=False)
+                csv_files[f"{name}.csv"] = csv_data
+            except Exception as e:
+                return f"❌ Error generating CSV for {name}: {e}"
+    
+    # Store in session state for download
+    ss["csv_files_ready"] = csv_files
+    ss["csv_generation_timestamp"] = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
+    count = len(csv_files)
+    total_rows = sum(len(df) for df in dfs.values() if df is not None)
+    return f"✅ **CSV files generated!** {count} files ready ({total_rows:,} total records). Scroll to the **{{ 📥 Download }}** section in the center column to download."
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # QUICK-ACTION BUTTONS
 # ─────────────────────────────────────────────────────────────────────────────
 def _get_quick_actions():
     """Build quick action list, including saved configs."""
     actions = [
         ("🔢 How many records?",       "Summarise the current dataset: how many records are in each object and what is the total?"),
+        ("📥 Generate CSV files",      "_CSV_ACTION_"),
         ("⚠️ Why did my upload fail?", "Walk me through the most common reasons an InsurancePolicy upload fails and how to fix each one."),
         ("🔑 Security token help",     "Explain what a Salesforce security token is, when it's required, and how to reset it."),
         ("📋 Required fields?",        "What are the required fields for each of the six FSC Insurance objects this app generates?"),
@@ -184,7 +239,7 @@ def _get_quick_actions():
     # Add saved config actions
     configs = list_configs_for_chat()
     if configs:
-        actions.insert(4, ("📂 Show saved configs", f"List my saved configurations: {', '.join(configs)}"))
+        actions.insert(5, ("📂 Show saved configs", f"List my saved configurations: {', '.join(configs)}"))
     
     return actions
 
@@ -233,14 +288,36 @@ upload troubleshooting, or data strategy.
         for i in range(0, len(quick_actions), 2):
             qa_col1, qa_col2 = st.columns(2, gap="small")
             label1, prompt1 = quick_actions[i]
-            if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
-                _submit_message(prompt1)
-                st.rerun()
+            # Handle CSV action specially
+            if prompt1 == "_CSV_ACTION_":
+                if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
+                    msg = _generate_csv_files()
+                    st.session_state.agent_messages.append({
+                        "role": "assistant",
+                        "content": msg,
+                        "ts": datetime.now().strftime("%H:%M"),
+                    })
+                    st.rerun()
+            else:
+                if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
+                    _submit_message(prompt1)
+                    st.rerun()
             if i + 1 < len(quick_actions):
                 label2, prompt2 = quick_actions[i + 1]
-                if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
-                    _submit_message(prompt2)
-                    st.rerun()
+                # Handle CSV action specially
+                if prompt2 == "_CSV_ACTION_":
+                    if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
+                        msg = _generate_csv_files()
+                        st.session_state.agent_messages.append({
+                            "role": "assistant",
+                            "content": msg,
+                            "ts": datetime.now().strftime("%H:%M"),
+                        })
+                        st.rerun()
+                else:
+                    if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
+                        _submit_message(prompt2)
+                        st.rerun()
             else:
                 qa_col2.empty()
 
