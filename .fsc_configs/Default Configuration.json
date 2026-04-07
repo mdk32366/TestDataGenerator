@@ -1,0 +1,105 @@
+{
+  "region": "All 50 States",
+  "custom_states": [],
+  "num_campaigns": 2,
+  "campaign_names": "Q1 2026 Home & Auto Bundle Drive\nQ2 2026 Life Insurance Awareness Campaign",
+  "campaign_type": "Email",
+  "campaign_status": "In Progress",
+  "budget_range": [
+    10,
+    50
+  ],
+  "revenue_range": [
+    100,
+    500
+  ],
+  "leads_per_campaign": 20,
+  "num_accounts": 100,
+  "contacts_per_account": 2,
+  "industries": [
+    "Insurance",
+    "Financial Services",
+    "Healthcare",
+    "Real Estate",
+    "Manufacturing"
+  ],
+  "acct_types": [
+    "Prospect",
+    "Customer - Direct",
+    "Customer - Channel",
+    "Partner"
+  ],
+  "acct_sources": [
+    "Web",
+    "Phone Inquiry",
+    "Campaign",
+    "Partner Referral",
+    "Word of Mouth",
+    "Trade Show"
+  ],
+  "contact_titles": [
+    "CEO",
+    "CFO",
+    "COO",
+    "VP Finance",
+    "Risk Manager",
+    "Controller",
+    "Owner",
+    "Director of Operations",
+    "President",
+    "Managing Partner"
+  ],
+  "closed_won_pct": 50,
+  "opp_amount_range": [
+    25,
+    300
+  ],
+  "closed_months_back": 18,
+  "open_months_fwd": 9,
+  "opp_types": [
+    "New Business",
+    "Renewal",
+    "Cross-Sell",
+    "Upsell"
+  ],
+  "policy_types": [
+    "Homeowners",
+    "Auto",
+    "Life",
+    "Commercial Property",
+    "General Liability",
+    "Workers Compensation",
+    "Umbrella"
+  ],
+  "carriers": [
+    "State Farm",
+    "Allstate",
+    "Progressive",
+    "Nationwide",
+    "Travelers",
+    "Liberty Mutual",
+    "Farmers",
+    "USAA",
+    "American Family",
+    "Erie Insurance"
+  ],
+  "premium_pct_range": [
+    3,
+    8
+  ],
+  "payment_methods": [
+    "ACH",
+    "Check",
+    "Credit Card",
+    "EFT",
+    "Wire Transfer"
+  ],
+  "payment_freqs": [
+    "Monthly",
+    "Quarterly",
+    "Semi-Annual",
+    "Annual"
+  ],
+  "seed_val": 0,
+  "saved_at": "2026-04-07T07:07:54.214748"
+}
