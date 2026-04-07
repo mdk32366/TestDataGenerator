@@ -1176,3 +1176,16 @@ with sf_col:
                 st.session_state.load_done    = False
                 st.session_state.load_results = {}
                 st.session_state.load_log     = []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AGENTIC CHAT PANEL  (added by fsc_agent_chat.py)
+# ─────────────────────────────────────────────────────────────────────────────
+try:
+    from fsc_agent_chat import render_agent_chat
+    render_agent_chat()
+except ImportError:
+    st.info(
+        "💡 **FSC Data Assistant** not loaded — place `fsc_agent_chat.py` in the same "
+        "directory as this file and restart the app."
+    )
