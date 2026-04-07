@@ -1115,16 +1115,25 @@ with preview_col:
             df_pols  = st.session_state.df_policies
             cwc = int(df_opps["_is_won"].sum()) if df_opps is not None and "_is_won" in df_opps.columns else 0
 
-            st.markdown(
-                f"""<div class="metric-row">
-                {metric_html(len(df_camp), "Campaigns") if df_camp is not None else ""}
-                {metric_html(len(df_leads),"Leads") if df_leads is not None else ""}
-                {metric_html(len(df_accts),"Accounts") if df_accts is not None else ""}
-                {metric_html(len(df_cont), "Contacts") if df_cont is not None else ""}
-                {metric_html(len(df_opps), "Opps") if df_opps is not None else ""}
-                {metric_html(cwc,          "Closed Won") if df_opps is not None else ""}
-                {metric_html(len(df_pols), "Policies") if df_pols is not None else ""}
-                </div>""", unsafe_allow_html=True)
+            # Build metrics HTML dynamically for only generated objects
+            metrics_html = '<div class="metric-row">'
+            if df_camp is not None:
+                metrics_html += metric_html(len(df_camp), "Campaigns")
+            if df_leads is not None:
+                metrics_html += metric_html(len(df_leads), "Leads")
+            if df_accts is not None:
+                metrics_html += metric_html(len(df_accts), "Accounts")
+            if df_cont is not None:
+                metrics_html += metric_html(len(df_cont), "Contacts")
+            if df_opps is not None:
+                metrics_html += metric_html(len(df_opps), "Opps")
+            if df_opps is not None:
+                metrics_html += metric_html(cwc, "Closed Won")
+            if df_pols is not None:
+                metrics_html += metric_html(len(df_pols), "Policies")
+            metrics_html += '</div>'
+            
+            st.markdown(metrics_html, unsafe_allow_html=True)
 
             st.markdown(
                 f'<div class="success-box">✅ Generated · Seed <code>{seed_used}</code> · '
