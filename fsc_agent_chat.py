@@ -217,18 +217,28 @@ upload troubleshooting, or data strategy.
     """, unsafe_allow_html=True)
 
     # ── Two-column layout: chat | context panel ───────────────────────────
-    chat_col, ctx_col = st.columns([3, 1], gap="large")
+    chat_col, ctx_col = st.columns([3.5, 0.8], gap="medium")
 
     with ctx_col:
         st.markdown("#### ⚡ Quick Actions")
         quick_actions = _get_quick_actions()
-        for label, prompt in quick_actions:
-            if st.button(label, use_container_width=True, key=f"qa_{label[:12]}"):
-                _submit_message(prompt)
+        # Arrange quick actions in 2 columns
+        for i in range(0, len(quick_actions), 2):
+            qa_col1, qa_col2 = st.columns(2, gap="small")
+            label1, prompt1 = quick_actions[i]
+            if qa_col1.button(label1, use_container_width=True, key=f"qa_{label1[:10]}"):
+                _submit_message(prompt1)
                 st.rerun()
+            if i + 1 < len(quick_actions):
+                label2, prompt2 = quick_actions[i + 1]
+                if qa_col2.button(label2, use_container_width=True, key=f"qa_{label2[:10]}"):
+                    _submit_message(prompt2)
+                    st.rerun()
+            else:
+                qa_col2.empty()
 
         st.markdown("---")
-        st.markdown("#### 📂 Saved Configs")
+        st.markdown("#### 📂 Configs")
         available_configs = list_configs_for_chat()
         if available_configs:
             st.caption(f"**{len(available_configs)} configs saved**")
@@ -246,7 +256,7 @@ upload troubleshooting, or data strategy.
             st.caption("No configs saved yet. Create one from the left panel!")
 
         st.markdown("---")
-        st.markdown("#### 🗂 Session Context")
+        st.markdown("#### � Context")
         ss = st.session_state
         if ss.get("generated"):
             dfs = {

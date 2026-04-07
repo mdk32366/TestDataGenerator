@@ -29,11 +29,17 @@ st.markdown("""
 <style>
     .main-header {
         background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 100%);
-        padding: 2rem 2.5rem; border-radius: 12px;
-        color: white; margin-bottom: 2rem;
+        padding: 1rem 1.5rem; border-radius: 12px;
+        color: white; margin-bottom: 1.2rem;
     }
-    .main-header h1 { margin: 0; font-size: 2rem; font-weight: 700; }
-    .main-header p  { margin: 0.4rem 0 0; opacity: 0.85; font-size: 1rem; }
+    .main-header h1 { margin: 0; font-size: 1.4rem; font-weight: 700; }
+    .main-header p  { margin: 0.2rem 0 0; opacity: 0.85; font-size: 0.85rem; }
+
+    .config-ribbon {
+        background: #f0f4f8; border-left: 4px solid #2563a8;
+        padding: 0.7rem 1rem; margin-bottom: 1rem; border-radius: 4px;
+        font-size: 0.85rem; color: #1a3a5c;
+    }
 
     .metric-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
     .metric-box {
@@ -762,8 +768,8 @@ for k, v in default_config.items():
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
-    <h1>🏛️ FSC Insurance Test Data Generator</h1>
-    <p>Salesforce Financial Services Cloud · Insurance Version · Sandbox Dataset Builder & Direct Loader</p>
+    <h1>🏛️ FSC Test Data Generator</h1>
+    <p>Salesforce FSC Insurance · Sandbox Dataset Builder & Direct Loader</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -788,12 +794,19 @@ config_col, preview_col, sf_col = st.columns([1, 1.5, 1], gap="large")
 # LEFT — CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════
 with config_col:
-    st.markdown("### ⚙️ Dataset Parameters")
+    st.markdown("### ⚙️ Configuration")
+
+    # ── CONFIG RIBBON ────────────────────────────────────────────────────
+    st.markdown(
+        '<div class="config-ribbon">💾 <strong>Save</strong> your current settings | '
+        '<strong>Load</strong> a saved config to reuse</div>',
+        unsafe_allow_html=True
+    )
 
     # ── LOAD CONFIG SECTION ───────────────────────────────────────────────
     available_configs = list_configs()
     if available_configs:
-        with st.expander("📂 Load Saved Configuration", expanded=False):
+        with st.expander("📂 Load Configuration", expanded=False):
             selected_config = st.selectbox(
                 "Select a configuration to load:",
                 available_configs,
@@ -848,51 +861,57 @@ with config_col:
                 st.rerun()
         
         if st.session_state.loaded_config_name:
-            st.info(f"📌 Loaded: **{st.session_state.loaded_config_name}**")
+            st.caption(f"📌 Loaded: **{st.session_state.loaded_config_name}**")
 
-    with st.expander("🗺️  Geographic Scope", expanded=True):
-        region = st.selectbox("Region",
-            ["All 50 States","Pacific Northwest","Mountain West","Sunbelt","Northeast",
-             "Southeast","Midwest","Southwest","West","Custom"],
-            key="cfg_region")
-        custom_states = []
-        if region == "Custom":
-            custom_states = st.multiselect("Select States", sorted(US_CITIES.keys()), default=["WA","OR","CA"], key="cfg_custom_states")
-        state_pool = custom_states if region == "Custom" else states_for_region(region)
-        if state_pool:
-            st.caption(f"📍 {len(state_pool)} states · {', '.join(sorted(state_pool)[:8])}{'…' if len(state_pool)>8 else ''}")
+    # ── TWO-COLUMN PARAMETERS ────────────────────────────────────────────
+    col1, col2 = st.columns(2, gap="small")
 
-    with st.expander("📣  Campaigns", expanded=True):
-        num_campaigns = st.slider("Number of Campaigns", 1, 10, 2, key="cfg_num_campaigns")
-        st.caption("Campaign names (one per line):")
-        names_text = st.text_area("Campaign Names",
-            value="Q1 2026 Home & Auto Bundle Drive\nQ2 2026 Life Insurance Awareness Campaign",
-            height=90, label_visibility="collapsed", key="cfg_campaign_names")
-        campaign_names_list = [n.strip() for n in names_text.strip().split("\n") if n.strip()]
-        c1, c2 = st.columns(2)
-        campaign_type   = c1.selectbox("Type",   ["Email","Direct Mail","Webinar","Event","Social","Other"], key="cfg_campaign_type")
-        campaign_status = c2.selectbox("Status", ["In Progress","Planned","Completed","Aborted"], key="cfg_campaign_status")
-        budget_range    = st.slider("Budget ($K)", 1, 500, (10,50), key="cfg_budget_range")
-        revenue_range   = st.slider("Expected Revenue ($K)", 10, 5000, (100,500), key="cfg_revenue_range")
-        leads_per_campaign = st.slider("Leads per Campaign", 5, 500, 20, key="cfg_leads_per_campaign")
+    with col1:
+        with st.expander("🗺️ Geographic Scope", expanded=True):
+            region = st.selectbox("Region",
+                ["All 50 States","Pacific Northwest","Mountain West","Sunbelt","Northeast",
+                 "Southeast","Midwest","Southwest","West","Custom"],
+                key="cfg_region")
+            custom_states = []
+            if region == "Custom":
+                custom_states = st.multiselect("Select States", sorted(US_CITIES.keys()), default=["WA","OR","CA"], key="cfg_custom_states")
+            state_pool = custom_states if region == "Custom" else states_for_region(region)
+            if state_pool:
+                st.caption(f"📍 {len(state_pool)} states")
 
-    with st.expander("🏢  Accounts & Contacts", expanded=True):
-        num_accounts = st.slider("Number of Accounts", 10, 1000, 100, key="cfg_num_accounts")
-        contacts_per_account = st.slider("Contacts per Account", 1, 5, 2, key="cfg_contacts_per_account")
-        sel_industries    = st.multiselect("Industries", INDUSTRIES,
-            default=["Insurance","Financial Services","Healthcare","Real Estate","Manufacturing"], key="cfg_industries")
-        sel_acct_types    = st.multiselect("Account Types",   ACCOUNT_TYPES,   default=ACCOUNT_TYPES, key="cfg_acct_types")
-        sel_acct_sources  = st.multiselect("Account Sources", ACCOUNT_SOURCES, default=ACCOUNT_SOURCES, key="cfg_acct_sources")
-        sel_contact_titles= st.multiselect("Contact Titles",  CONTACT_TITLES,  default=CONTACT_TITLES, key="cfg_contact_titles")
+        with st.expander("📣 Campaigns", expanded=True):
+            num_campaigns = st.slider("Number of Campaigns", 1, 10, 2, key="cfg_num_campaigns")
+            st.caption("Campaign names (one per line):")
+            names_text = st.text_area("Campaign Names",
+                value="Q1 2026 Home & Auto Bundle Drive\nQ2 2026 Life Insurance Awareness Campaign",
+                height=90, label_visibility="collapsed", key="cfg_campaign_names")
+            campaign_names_list = [n.strip() for n in names_text.strip().split("\n") if n.strip()]
+            c1, c2 = st.columns(2)
+            campaign_type   = c1.selectbox("Type",   ["Email","Direct Mail","Webinar","Event","Social","Other"], key="cfg_campaign_type")
+            campaign_status = c2.selectbox("Status", ["In Progress","Planned","Completed","Aborted"], key="cfg_campaign_status")
+            budget_range    = st.slider("Budget ($K)", 1, 500, (10,50), key="cfg_budget_range")
+            revenue_range   = st.slider("Expected Revenue ($K)", 10, 5000, (100,500), key="cfg_revenue_range")
+            leads_per_campaign = st.slider("Leads per Campaign", 5, 500, 20, key="cfg_leads_per_campaign")
 
-    with st.expander("💼  Opportunities", expanded=True):
+    with col2:
+        with st.expander("🏢 Accounts & Contacts", expanded=True):
+            num_accounts = st.slider("Number of Accounts", 10, 1000, 100, key="cfg_num_accounts")
+            contacts_per_account = st.slider("Contacts per Account", 1, 5, 2, key="cfg_contacts_per_account")
+            sel_industries    = st.multiselect("Industries", INDUSTRIES,
+                default=["Insurance","Financial Services","Healthcare","Real Estate","Manufacturing"], key="cfg_industries")
+            sel_acct_types    = st.multiselect("Account Types",   ACCOUNT_TYPES,   default=ACCOUNT_TYPES, key="cfg_acct_types")
+            sel_acct_sources  = st.multiselect("Account Sources", ACCOUNT_SOURCES, default=ACCOUNT_SOURCES, key="cfg_acct_sources")
+            sel_contact_titles= st.multiselect("Contact Titles",  CONTACT_TITLES,  default=CONTACT_TITLES, key="cfg_contact_titles")
+
+    # Back to full width for remaining sections
+    with st.expander("💼 Opportunities", expanded=True):
         closed_won_pct     = st.slider("% Closed Won", 0, 100, 50, key="cfg_closed_won_pct")
         opp_amount_range   = st.slider("Amount Range ($K)", 5, 2000, (25,300), key="cfg_opp_amount_range")
         closed_months_back = st.slider("Closed Won: months back", 1, 36, 18, key="cfg_closed_months_back")
         open_months_fwd    = st.slider("Open: months ahead",    1, 24,  9, key="cfg_open_months_fwd")
         sel_opp_types      = st.multiselect("Opp Types", OPP_TYPES, default=OPP_TYPES, key="cfg_opp_types")
 
-    with st.expander("📋  Insurance Policies", expanded=True):
+    with st.expander("📋 Insurance Policies", expanded=True):
         sel_policy_types = st.multiselect("Policy Types", POLICY_TYPES,
             default=["Homeowners","Auto","Life","Commercial Property","General Liability","Workers Compensation","Umbrella"], key="cfg_policy_types")
         sel_carriers       = st.multiselect("Carriers",          CARRIERS[:10],    default=CARRIERS[:10], key="cfg_carriers")
@@ -900,15 +919,14 @@ with config_col:
         sel_payment_methods= st.multiselect("Payment Methods",   PAYMENT_METHODS,  default=PAYMENT_METHODS, key="cfg_payment_methods")
         sel_payment_freqs  = st.multiselect("Payment Frequencies",PAYMENT_FREQS,   default=PAYMENT_FREQS, key="cfg_payment_freqs")
 
-    with st.expander("🎲  Advanced", expanded=False):
+    with st.expander("🎲 Advanced", expanded=False):
         seed_val = st.number_input("Random Seed (0 = truly random)", min_value=0, max_value=99999, value=0, key="cfg_seed_val")
 
     st.markdown("---")
     generate_btn = st.button("⚡  Generate Dataset", type="primary", use_container_width=True)
 
     # ── SAVE CONFIG SECTION ───────────────────────────────────────────────
-    st.markdown("### 💾 Save Configuration")
-    with st.expander("Save current settings", expanded=False):
+    with st.expander("💾 Save Configuration", expanded=False):
         config_name = st.text_input("Configuration name:", placeholder="e.g., West Coast Dataset", key="cfg_save_name")
         if st.button("💾 Save Configuration", use_container_width=True, type="secondary"):
             if not config_name or not config_name.strip():
