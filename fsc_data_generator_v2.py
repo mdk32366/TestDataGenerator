@@ -872,7 +872,7 @@ with config_col:
             st.caption(f"📌 Loaded: **{st.session_state.loaded_config_name}**")
 
     # ── TWO-COLUMN PARAMETERS ────────────────────────────────────────────
-    col1, col2 = st.columns(2, gap="micro")
+    col1, col2 = st.columns(2, gap="xxsmall")
 
     with col1:
         with st.expander("🗺️ Geographic Scope", expanded=True):
