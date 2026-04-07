@@ -1065,12 +1065,12 @@ with preview_col:
         with dc1:
             st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
                 file_name=f"fsc_test_data_seed{seed_used}.zip",
-                mime="application/zip", use_container_width=True, type="primary")
+                mime="application/zip", use_container_width=True, type="primary", key="download_all_zip_main")
         with dc2:
             sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed")
         if sel_file:
             st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
-                file_name=sel_file, mime="text/csv", use_container_width=True)
+                file_name=sel_file, mime="text/csv", use_container_width=True, key="download_individual_main")
 
     # ── PREVIEW & DOWNLOAD SECTION ────────────────────────────────────────
     st.markdown("---")
@@ -1110,12 +1110,12 @@ with preview_col:
         with dc1:
             st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
                 file_name=f"fsc_test_data_seed{seed_used}.zip",
-                mime="application/zip", use_container_width=True, type="primary")
+                mime="application/zip", use_container_width=True, type="primary", key="download_all_zip_preview")
         with dc2:
             sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed")
         if sel_file:
             st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
-                file_name=sel_file, mime="text/csv", use_container_width=True)
+                file_name=sel_file, mime="text/csv", use_container_width=True, key="download_individual_preview")
 
         st.markdown("---")
         # Preview tabs
