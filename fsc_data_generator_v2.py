@@ -1031,52 +1031,55 @@ with preview_col:
     # ── PREVIEW & DOWNLOAD SECTION ────────────────────────────────────────
     st.markdown("---")
     if st.session_state.generated:
-        df_camp  = st.session_state.df_campaigns
-        df_leads = st.session_state.df_leads
-        df_accts = st.session_state.df_accounts
-        df_cont  = st.session_state.df_contacts
-        df_opps  = st.session_state.df_opps
-        df_pols  = st.session_state.df_policies
-        cwc = int(df_opps["_is_won"].sum()) if "_is_won" in df_opps.columns else 0
         seed_used = st.session_state.get("_seed_used","?")
+        
+        # Use a container with a dynamic key to force complete re-render on each generation
+        with st.container(key=f"preview_download_{seed_used}"):
+            df_camp  = st.session_state.df_campaigns
+            df_leads = st.session_state.df_leads
+            df_accts = st.session_state.df_accounts
+            df_cont  = st.session_state.df_contacts
+            df_opps  = st.session_state.df_opps
+            df_pols  = st.session_state.df_policies
+            cwc = int(df_opps["_is_won"].sum()) if "_is_won" in df_opps.columns else 0
 
-        st.markdown(
-            f"""<div class="metric-row">
-            {metric_html(len(df_camp), "Campaigns")}
-            {metric_html(len(df_leads),"Leads")}
-            {metric_html(len(df_accts),"Accounts")}
-            {metric_html(len(df_cont), "Contacts")}
-            {metric_html(len(df_opps), "Opps")}
-            {metric_html(cwc,          "Closed Won")}
-            {metric_html(len(df_pols), "Policies")}
-            </div>""", unsafe_allow_html=True)
+            st.markdown(
+                f"""<div class="metric-row">
+                {metric_html(len(df_camp), "Campaigns")}
+                {metric_html(len(df_leads),"Leads")}
+                {metric_html(len(df_accts),"Accounts")}
+                {metric_html(len(df_cont), "Contacts")}
+                {metric_html(len(df_opps), "Opps")}
+                {metric_html(cwc,          "Closed Won")}
+                {metric_html(len(df_pols), "Policies")}
+                </div>""", unsafe_allow_html=True)
 
-        st.markdown(
-            f'<div class="success-box">✅ Generated · Seed <code>{seed_used}</code> · '
-            f'{df_accts["BillingState"].nunique()} states</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="success-box">✅ Generated · Seed <code>{seed_used}</code> · '
+                f'{df_accts["BillingState"].nunique()} states</div>', unsafe_allow_html=True)
 
-        # Downloads
-        st.markdown("#### 📥 Download")
-        all_dfs = {
-            "01_Campaigns.csv": df_camp, "02_Leads.csv": df_leads,
-            "03_Accounts.csv": df_accts, "04_Contacts.csv": df_cont,
-            "05_Opportunities.csv": df_opps, "06_InsurancePolicies.csv": df_pols,
-        }
-        dc1, dc2 = st.columns([1.3,1])
-        with dc1:
-            st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
-                file_name=f"fsc_test_data_seed{seed_used}.zip",
-                mime="application/zip", use_container_width=True, type="primary", key="download_all_zip_preview")
-        with dc2:
-            sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed", key=f"sel_file_{seed_used}")
-        if sel_file:
-            st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
-                file_name=sel_file, mime="text/csv", use_container_width=True, key="download_individual_preview")
+            # Downloads
+            st.markdown("#### 📥 Download")
+            all_dfs = {
+                "01_Campaigns.csv": df_camp, "02_Leads.csv": df_leads,
+                "03_Accounts.csv": df_accts, "04_Contacts.csv": df_cont,
+                "05_Opportunities.csv": df_opps, "06_InsurancePolicies.csv": df_pols,
+            }
+            dc1, dc2 = st.columns([1.3,1])
+            with dc1:
+                st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
+                    file_name=f"fsc_test_data_seed{seed_used}.zip",
+                    mime="application/zip", use_container_width=True, type="primary", key="download_all_zip_preview")
+            with dc2:
+                sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed", key=f"sel_file_{seed_used}")
+            if sel_file:
+                st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
+                    file_name=sel_file, mime="text/csv", use_container_width=True, key="download_individual_preview")
 
-        st.markdown("---")
-        # Preview tabs
-        st.markdown("#### 🔍 Preview")
-        tabs = st.tabs(["📣 Campaigns","👤 Leads","🏢 Accounts","👥 Contacts","💼 Opps","📋 Policies"])
+            st.markdown("---")
+            # Preview tabs
+            st.markdown("#### 🔍 Preview")
+            tabs = st.tabs(["📣 Campaigns","👤 Leads","🏢 Accounts","👥 Contacts","💼 Opps","📋 Policies"])
 
         def preview_tab(tab, df, extra_metrics=None):
             xdf = df[[c for c in df.columns if not c.startswith("_")]]
