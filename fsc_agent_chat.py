@@ -590,15 +590,14 @@ upload troubleshooting, or data strategy.
             f"**SF:** {'🟢 ' + ss.get('sf_org_name','Connected') if sf_ok else '⚪ Not connected'}"
         )
 
-        if st.session_state.agent_messages:
-            st.markdown("---")
-            if st.button("🗑 Clear chat", use_container_width=True):
-                st.session_state.agent_messages = []
-                st.rerun()
-
     with chat_col:
-        # ── New Chat button ────────────────────────────────────────────────
-        chat_controls = st.columns([2, 1])
+        # ── Chat controls (Clear & New Chat buttons) ────────────────────────
+        chat_controls = st.columns(2)
+        with chat_controls[0]:
+            if st.button("🗑 Clear", use_container_width=True, type="secondary"):
+                st.session_state.agent_messages = []
+                st.session_state.agent_input_key += 1
+                st.rerun()
         with chat_controls[1]:
             if st.button("📝 New Chat", use_container_width=True, type="secondary"):
                 st.session_state.agent_messages = []
