@@ -103,10 +103,16 @@ FSC Insurance Test Data Generator. You have deep knowledge of:
 - Saving and loading dataset configurations for fast reuse
 
 ## Your Actions
-You can perform the following action directly with this assistant:
-- **Generate CSV files** — If the user asks you to generate CSV files from the current dataset, \
-you have a "Generate CSV" button in the quick actions panel that will create downloadable CSVs \
-for all six objects (Campaigns, Leads, Accounts, Contacts, Opportunities, InsurancePolicies).
+You can perform the following actions directly with this assistant:
+- **Generate CSV files** — If the user asks you to "generate csv", "create csv", or "download csv", \
+the system will automatically create downloadable CSVs for all six objects. You can trigger this by \
+mentioning it naturally in the chat, OR the user can click the button. Simply respond that you've \
+triggered the action.
+- **Save Configuration** — If the user asks to "save config", "save configuration", or "save current config", \
+the system will automatically save the current dataset configuration with an auto-generated name and \
+store it for later reuse. The chat will confirm the saved config name.
+- **Combined Actions** — The user can ask to "save config and generate csv" or similar, and both \
+actions will be triggered in sequence.
 - **Generate dataset from configuration** — If the user wants to load a saved config and generate \
 data, you can guide them or suggest they use the "Load & Generate" button in the configs panel.
 
@@ -564,8 +570,46 @@ def _trigger_generation() -> None:
     ss["trigger_generation_from_chat"] = True
     st.success(f"✅ Config '{ss.get('loaded_config_name')}' loaded! Scroll down to click **Generate Dataset**.")
 
+def _detect_and_execute_actions(user_text: str) -> list[str]:
+    """
+    Detect action keywords in user message and execute corresponding actions.
+    Returns list of messages to add to chat (empty if no actions matched).
+    """
+    user_lower = user_text.lower()
+    messages = []
+    ts = datetime.now().strftime("%H:%M")
+    
+    # Detect save config action
+    save_keywords = ["save config", "save configuration", "save this config", "save current config", "save the config"]
+    should_save = any(kw in user_lower for kw in save_keywords)
+    
+    # Detect CSV generation action
+    csv_keywords = ["generate csv", "create csv", "make csv", "download csv", "create csvs", "generate csvs"]
+    should_generate_csv = any(kw in user_lower for kw in csv_keywords)
+    
+    # Execute save config if requested
+    if should_save:
+        msg = _save_current_config()
+        messages.append({
+            "role": "assistant",
+            "content": msg,
+            "ts": ts,
+        })
+    
+    # Execute CSV generation if requested
+    if should_generate_csv:
+        msg = _generate_csv_files()
+        messages.append({
+            "role": "assistant",
+            "content": msg,
+            "ts": ts,
+        })
+    
+    return messages
+
+
 def _submit_message(user_text: str) -> None:
-    """Add user message, call the API, append assistant reply."""
+    """Add user message, check for actions, call the API, append assistant reply."""
     ts = datetime.now().strftime("%H:%M")
     st.session_state.agent_messages.append({
         "role": "user",
@@ -573,6 +617,24 @@ def _submit_message(user_text: str) -> None:
         "ts": ts,
     })
 
+    # Check for semantic actions (save config, generate csv, etc.)
+    action_messages = _detect_and_execute_actions(user_text)
+    if action_messages:
+        # Add all action results to chat
+        st.session_state.agent_messages.extend(action_messages)
+        # If actions were executed, don't call Claude (unless user also asked a question)
+        # Simple heuristic: if message is ONLY about actions, stop here
+        simple_check = user_text.lower()
+        is_action_only = any(
+            kw in simple_check 
+            for kw in ["save config", "save configuration", "generate csv", "create csv", 
+                      "make csv", "download csv", "save this", "create csvs"]
+        ) and len(user_text.split()) <= 5
+        
+        if is_action_only:
+            return  # Action executed, don't also call Claude
+    
+    # If no action-only message, proceed with Claude for advisory/conversational responses
     client, err = _get_client()
     if err:
         st.session_state.agent_messages.append({
