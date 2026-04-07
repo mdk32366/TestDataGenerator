@@ -1113,38 +1113,50 @@ with preview_col:
             df_cont  = st.session_state.df_contacts
             df_opps  = st.session_state.df_opps
             df_pols  = st.session_state.df_policies
-            cwc = int(df_opps["_is_won"].sum()) if "_is_won" in df_opps.columns else 0
+            cwc = int(df_opps["_is_won"].sum()) if df_opps is not None and "_is_won" in df_opps.columns else 0
 
             st.markdown(
                 f"""<div class="metric-row">
-                {metric_html(len(df_camp), "Campaigns")}
-                {metric_html(len(df_leads),"Leads")}
-                {metric_html(len(df_accts),"Accounts")}
-                {metric_html(len(df_cont), "Contacts")}
-                {metric_html(len(df_opps), "Opps")}
-                {metric_html(cwc,          "Closed Won")}
-                {metric_html(len(df_pols), "Policies")}
+                {metric_html(len(df_camp), "Campaigns") if df_camp is not None else ""}
+                {metric_html(len(df_leads),"Leads") if df_leads is not None else ""}
+                {metric_html(len(df_accts),"Accounts") if df_accts is not None else ""}
+                {metric_html(len(df_cont), "Contacts") if df_cont is not None else ""}
+                {metric_html(len(df_opps), "Opps") if df_opps is not None else ""}
+                {metric_html(cwc,          "Closed Won") if df_opps is not None else ""}
+                {metric_html(len(df_pols), "Policies") if df_pols is not None else ""}
                 </div>""", unsafe_allow_html=True)
 
             st.markdown(
                 f'<div class="success-box">✅ Generated · Seed <code>{seed_used}</code> · '
-                f'{df_accts["BillingState"].nunique()} states</div>', unsafe_allow_html=True)
+                f'{df_accts["BillingState"].nunique() if df_accts is not None else "?"} states</div>', unsafe_allow_html=True)
 
-            # Downloads
+            # Downloads - only include generated objects
             st.markdown("#### 📥 Download")
-            all_dfs = {
-                "01_Campaigns.csv": df_camp, "02_Leads.csv": df_leads,
-                "03_Accounts.csv": df_accts, "04_Contacts.csv": df_cont,
-                "05_Opportunities.csv": df_opps, "06_InsurancePolicies.csv": df_pols,
-            }
+            all_dfs = {}
+            if df_camp is not None:
+                all_dfs["01_Campaigns.csv"] = df_camp
+            if df_leads is not None:
+                all_dfs["02_Leads.csv"] = df_leads
+            if df_accts is not None:
+                all_dfs["03_Accounts.csv"] = df_accts
+            if df_cont is not None:
+                all_dfs["04_Contacts.csv"] = df_cont
+            if df_opps is not None:
+                all_dfs["05_Opportunities.csv"] = df_opps
+            if df_pols is not None:
+                all_dfs["06_InsurancePolicies.csv"] = df_pols
+            
             dc1, dc2 = st.columns([1.3,1])
             with dc1:
                 st.download_button("⬇️  Download All (ZIP)", data=build_zip(all_dfs),
                     file_name=f"fsc_test_data_seed{seed_used}.zip",
                     mime="application/zip", use_container_width=True, type="primary", key="download_all_zip_preview")
             with dc2:
-                sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed", key=f"sel_file_{seed_used}")
-            if sel_file:
+                if all_dfs:
+                    sel_file = st.selectbox("Individual file:", list(all_dfs.keys()), label_visibility="collapsed", key=f"sel_file_{seed_used}")
+                else:
+                    sel_file = None
+            if sel_file and all_dfs:
                 st.download_button(f"⬇️  {sel_file}", data=df_to_csv_bytes(all_dfs[sel_file]),
                     file_name=sel_file, mime="text/csv", use_container_width=True, key="download_individual_preview")
 
@@ -1154,6 +1166,10 @@ with preview_col:
             tabs = st.tabs(["📣 Campaigns","👤 Leads","🏢 Accounts","👥 Contacts","💼 Opps","📋 Policies"])
 
         def preview_tab(tab, df, extra_metrics=None):
+            if df is None:
+                with tab:
+                    st.info("No data generated for this object.")
+                return
             xdf = df[[c for c in df.columns if not c.startswith("_")]]
             with tab:
                 cols = st.columns(3 + (len(extra_metrics) if extra_metrics else 0))
@@ -1176,34 +1192,43 @@ with preview_col:
         preview_tab(tabs[3], df_cont)
 
         with tabs[4]:
-            xdf = df_opps[[c for c in df_opps.columns if not c.startswith("_")]]
-            c1,c2,c3,c4 = st.columns(4)
-            c1.metric("Total",      f"{len(xdf):,}")
-            c2.metric("Closed Won", f"{cwc:,}")
-            c3.metric("Pipeline",   f"{len(xdf)-cwc:,}")
-            c4.metric("Value",      f"${df_opps['Amount'].sum():,.0f}")
-            st.dataframe(xdf.head(8), use_container_width=True, hide_index=True)
+            if df_opps is None:
+                st.info("No data generated for this object.")
+            else:
+                xdf = df_opps[[c for c in df_opps.columns if not c.startswith("_")]]
+                c1,c2,c3,c4 = st.columns(4)
+                c1.metric("Total",      f"{len(xdf):,}")
+                c2.metric("Closed Won", f"{cwc:,}")
+                c3.metric("Pipeline",   f"{len(xdf)-cwc:,}")
+                c4.metric("Value",      f"${df_opps['Amount'].sum():,.0f}")
+                st.dataframe(xdf.head(8), use_container_width=True, hide_index=True)
 
         with tabs[5]:
-            c1,c2,c3,c4 = st.columns(4)
-            prem = df_pols["PremiumAmount"].sum() if len(df_pols) else 0
-            c1.metric("Policies",    f"{len(df_pols):,}")
-            c2.metric("Total Prem",  f"${prem:,.0f}")
-            c3.metric("Avg Premium", f"${prem/max(len(df_pols),1):,.0f}")
-            c4.metric("Types",       df_pols["PolicyType"].nunique() if len(df_pols) else 0)
-            xdf = df_pols[[c for c in df_pols.columns if not c.startswith("_")]]
-            st.dataframe(xdf.head(8), use_container_width=True, hide_index=True)
+            if df_pols is None:
+                st.info("No data generated for this object.")
+            else:
+                c1,c2,c3,c4 = st.columns(4)
+                prem = df_pols["PremiumAmount"].sum() if len(df_pols) else 0
+                c1.metric("Policies",    f"{len(df_pols):,}")
+                c2.metric("Total Prem",  f"${prem:,.0f}")
+                c3.metric("Avg Premium", f"${prem/max(len(df_pols),1):,.0f}")
+                c4.metric("Types",       df_pols["PolicyType"].nunique() if len(df_pols) else 0)
+                xdf = df_pols[[c for c in df_pols.columns if not c.startswith("_")]]
+                st.dataframe(xdf.head(8), use_container_width=True, hide_index=True)
 
         # Geo chart
         st.markdown("---")
         st.markdown("#### 🗺️ Geographic Distribution")
-        sc = df_accts["BillingState"].value_counts().reset_index()
-        sc.columns = ["State","Accounts"]
-        g1, g2 = st.columns(2)
-        with g1:
-            st.dataframe(sc.head(12), use_container_width=True, hide_index=True)
-        with g2:
-            st.bar_chart(sc.set_index("State").head(20), height=260, color="#2563a8")
+        if df_accts is not None:
+            sc = df_accts["BillingState"].value_counts().reset_index()
+            sc.columns = ["State","Accounts"]
+            g1, g2 = st.columns(2)
+            with g1:
+                st.dataframe(sc.head(12), use_container_width=True, hide_index=True)
+            with g2:
+                st.bar_chart(sc.set_index("State").head(20), height=260, color="#2563a8")
+        else:
+            st.info("Account data not generated. Geographic distribution unavailable.")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # RIGHT — SALESFORCE CONNECTION & LOADER
