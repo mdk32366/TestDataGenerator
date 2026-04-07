@@ -325,13 +325,7 @@ For explicitly_requested_objects, ONLY include objects that were specifically me
         msg = "\n".join(config_summary)
         msg += "\n\n👉 **Next steps:**\n"
         msg += "1. Click **⚡ Generate Dataset** in the middle column\n"
-        
-        # Ask about CSV scope based on what was explicitly requested
-        if explicitly_requested and len(explicitly_requested) < 6:
-            requested_str = ", ".join(explicitly_requested)
-            msg += f"2. When done, ask me: **generate {requested_str.lower()} csvs** (or ask for **all csvs**)\n"
-        else:
-            msg += "2. When done, ask me to **generate csvs**\n"
+        msg += "2. If you want to save this as a common request, click **💾 Save Configuration** or ask me to save it\n"
         
         ss["_parsed_dataset_request"] = True
         return msg
