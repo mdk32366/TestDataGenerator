@@ -104,6 +104,10 @@ FSC Insurance Test Data Generator. You have deep knowledge of:
 
 ## Your Actions
 You can perform the following actions directly with this assistant:
+- **Auto-Configure Datasets** — If the user describes a desired dataset (e.g., "I want 100 accounts \
+in California, insurance industry, with Home and Auto policies"), the system will intelligently parse \
+their request using Claude and auto-configure all the sidebar parameters. The user then just needs to \
+click **Generate Dataset** in the middle column. This is the recommended workflow!
 - **Generate CSV files** — If the user asks you to "generate csv", "create csv", or "download csv", \
 the system will automatically create downloadable CSVs for all six objects. You can trigger this by \
 mentioning it naturally in the chat, OR the user can click the button. Simply respond that you've \
@@ -113,8 +117,9 @@ the system will automatically save the current dataset configuration with an aut
 store it for later reuse. The chat will confirm the saved config name.
 - **Combined Actions** — The user can ask to "save config and generate csv" or similar, and both \
 actions will be triggered in sequence.
-- **Generate dataset from configuration** — If the user wants to load a saved config and generate \
-data, you can guide them or suggest they use the "Load & Generate" button in the configs panel.
+- **Describe → Configure → Generate → Save → Export Workflow** — User can now say something like: \
+"I want 500 accounts across CA, OR, WA for the insurance industry. Save as 'Pacific Northwest dataset' \
+and generate the CSVs." The system will configure, then on the next request generate CSVs.
 
 ## What you do NOT do
 - **DO NOT attempt to connect to Salesforce.** If the user asks you to load data to Salesforce, \
@@ -195,6 +200,115 @@ def _build_system_prompt() -> str:
             state_block += f"\n  - Current config: {ss.get('loaded_config_name')}"
     
     return _SYSTEM_BASE.format(dataset_state=state_block, available_configs=configs_block)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INTELLIGENT DATASET CONFIGURATION
+# ─────────────────────────────────────────────────────────────────────────────
+def _parse_and_configure_dataset(user_request: str) -> str:
+    """
+    Use Claude to intelligently parse a dataset request and configure the app.
+    Extracts: accounts, industries, regions, campaigns, etc.
+    Returns a confirmation message.
+    """
+    client, err = _get_client()
+    if err:
+        return f"❌ Cannot parse request: {err}"
+    
+    # Use Claude to extract parameters
+    extraction_prompt = f"""
+User request: "{user_request}"
+
+Extract dataset parameters from this request. Return ONLY valid JSON with these fields:
+{{
+  "num_accounts": <number or null>,
+  "industries": [<list of industries from: Insurance, Financial Services, Healthcare, Real Estate, Manufacturing, Technology, Retail, Hospitality>],
+  "region": <one of: "All 50 States", "Northeast", "Midwest", "South", "West", "Custom"> or null,
+  "custom_states": [<list of state abbreviations if region=Custom>],
+  "num_campaigns": <number or null>,
+  "policy_types": [<list of policy types from: Homeowners, Auto, Life, Commercial Property, General Liability, Workers Compensation, Umbrella>],
+  "carriers": [<list of carrier names>],
+  "contacts_per_account": <number 1-5 or null>,
+  "leads_per_campaign": <number or null>
+}}
+
+Return ONLY the JSON object, no explanation. If a field cannot be determined, use null.
+"""
+    
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[{"role": "user", "content": extraction_prompt}]
+        )
+        
+        json_str = response.content[0].text.strip()
+        # Try to parse JSON
+        try:
+            params = json.loads(json_str)
+        except json.JSONDecodeError:
+            # If JSON parsing fails, extract from text
+            return "⚠️ I had trouble parsing that request. Could you be more specific? For example: '100 accounts, insurance industry, CA and OR'"
+        
+        ss = st.session_state
+        
+        # Apply configuration
+        config_summary = ["**Configuring dataset:**"]
+        
+        if params.get("num_accounts"):
+            ss["cfg_num_accounts"] = int(params["num_accounts"])
+            config_summary.append(f"  • Accounts: {params['num_accounts']}")
+        
+        if params.get("industries"):
+            valid_industries = ["Insurance", "Financial Services", "Healthcare", "Real Estate", "Manufacturing", "Technology", "Retail", "Hospitality"]
+            industries = [ind for ind in params["industries"] if ind in valid_industries]
+            if industries:
+                ss["cfg_industries"] = industries
+                config_summary.append(f"  • Industries: {', '.join(industries)}")
+        
+        if params.get("region"):
+            region = params["region"]
+            if region in ["Northeast", "Midwest", "South", "West"]:
+                ss["cfg_region"] = region
+                config_summary.append(f"  • Region: {region}")
+            elif region == "Custom" and params.get("custom_states"):
+                ss["cfg_region"] = "Custom"
+                ss["cfg_custom_states"] = params["custom_states"]
+                config_summary.append(f"  • States: {', '.join(params['custom_states'])}")
+        
+        if params.get("num_campaigns"):
+            ss["cfg_num_campaigns"] = int(params["num_campaigns"])
+            config_summary.append(f"  • Campaigns: {params['num_campaigns']}")
+        
+        if params.get("policy_types"):
+            valid_policies = ["Homeowners", "Auto", "Life", "Commercial Property", "General Liability", "Workers Compensation", "Umbrella"]
+            policies = [p for p in params["policy_types"] if p in valid_policies]
+            if policies:
+                ss["cfg_policy_types"] = policies
+                config_summary.append(f"  • Policy Types: {', '.join(policies)}")
+        
+        if params.get("contacts_per_account"):
+            ss["cfg_contacts_per_account"] = min(5, max(1, int(params["contacts_per_account"])))
+            config_summary.append(f"  • Contacts/Account: {ss['cfg_contacts_per_account']}")
+        
+        if params.get("leads_per_campaign"):
+            ss["cfg_leads_per_campaign"] = int(params["leads_per_campaign"])
+            config_summary.append(f"  • Leads/Campaign: {params['leads_per_campaign']}")
+        
+        if params.get("carriers"):
+            ss["cfg_carriers"] = params["carriers"][:10]  # Limit to 10
+            config_summary.append(f"  • Carriers: {', '.join(ss['cfg_carriers'])}")
+        
+        msg = "\n".join(config_summary)
+        msg += "\n\n**Next steps:**\n"
+        msg += "1. Click the **⚡ Generate Dataset** button in the middle column\n"
+        msg += "2. Once done, ask me to **save config and generate csv**\n"
+        
+        ss["_parsed_dataset_request"] = True
+        return msg
+        
+    except Exception as e:
+        return f"⚠️ Error parsing request: {e}. Please try: '100 accounts, insurance industry, California'"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -587,6 +701,25 @@ def _detect_and_execute_actions(user_text: str) -> list[str]:
     csv_keywords = ["generate csv", "create csv", "make csv", "download csv", "create csvs", "generate csvs"]
     should_generate_csv = any(kw in user_lower for kw in csv_keywords)
     
+    # Detect dataset configuration request (contains numbers + industry/region keywords)
+    dataset_indicators = ["account", "accounts", "campaign", "campaigns", "industry", "industries", 
+                         "state", "states", "region", "regions", "policy", "policies", "carrier"]
+    has_number = any(char.isdigit() for char in user_text)
+    has_dataset_keyword = any(kw in user_lower for kw in dataset_indicators)
+    is_not_action_only = not any(kw in user_lower for kw in save_keywords + csv_keywords)
+    
+    should_configure = has_number and has_dataset_keyword and is_not_action_only and len(user_text.split()) > 3
+    
+    # Execute dataset configuration if detected
+    if should_configure and not (should_save or should_generate_csv):
+        msg = _parse_and_configure_dataset(user_text)
+        messages.append({
+            "role": "assistant",
+            "content": msg,
+            "ts": ts,
+        })
+        return messages  # Return early; don't combine with other actions
+    
     # Execute save config if requested
     if should_save:
         msg = _save_current_config()
@@ -617,7 +750,7 @@ def _submit_message(user_text: str) -> None:
         "ts": ts,
     })
 
-    # Check for semantic actions (save config, generate csv, etc.)
+    # Check for semantic actions (save config, generate csv, configure dataset, etc.)
     action_messages = _detect_and_execute_actions(user_text)
     if action_messages:
         # Add all action results to chat
@@ -625,11 +758,13 @@ def _submit_message(user_text: str) -> None:
         # If actions were executed, don't call Claude (unless user also asked a question)
         # Simple heuristic: if message is ONLY about actions, stop here
         simple_check = user_text.lower()
-        is_action_only = any(
-            kw in simple_check 
-            for kw in ["save config", "save configuration", "generate csv", "create csv", 
-                      "make csv", "download csv", "save this", "create csvs"]
-        ) and len(user_text.split()) <= 5
+        has_dataset_indicators = any(kw in simple_check for kw in ["account", "accounts", "campaign", "campaigns", 
+                                                                    "industry", "industries", "state", "states", 
+                                                                    "region", "regions", "policy", "policies"])
+        has_number = any(char.isdigit() for char in user_text)
+        is_action_only = (any(kw in simple_check for kw in ["save config", "save configuration", "generate csv", 
+                                                             "create csv", "make csv", "download csv"]) and len(user_text.split()) <= 5) \
+                        or (has_number and has_dataset_indicators and len(user_text.split()) <= 15)
         
         if is_action_only:
             return  # Action executed, don't also call Claude
